@@ -1,75 +1,117 @@
 const std = @import("std");
 
+// ─────────────────────────────────────────────
+//  Error helpers
+// ─────────────────────────────────────────────
+
+/// Translates a file open error into a human readable message.
+/// Isolates error messaging from file processing logic.
+fn fileErrorMessage(err: anyerror) []const u8 {
+    return switch (err) {
+        error.FileNotFound => "file does not exist",
+        error.AccessDenied => "permission denied",
+        error.IsDir        => "path is a directory not a file",
+        error.FileBusy     => "file is currently locked",
+        else               => "unexpected error",
+    };
+}
+
+// ─────────────────────────────────────────────
+//  Counting
+// ─────────────────────────────────────────────
+
+/// Holds the results of analysing a file.
+const WordCount = struct {
+    lines:               usize,
+    words:               usize,
+    total_chars:         usize,
+    non_whitespace_chars: usize,
+};
+
+/// Analyses the contents of a file and returns a WordCount.
+/// Separating counting logic from I/O makes this easy to test.
+fn countContents(contents: []const u8) WordCount {
+    // count lines
+    var lines: usize = 0;
+    for (contents) |c| {
+        if (c == '\n') lines += 1;
+    }
+
+    // count tokens and non-whitespace characters
+    var tokenizer = std.mem.tokenizeAny(u8, contents, " \n\t");
+    var words: usize = 0;
+    var non_whitespace_chars: usize = 0;
+    while (tokenizer.next()) |token| {
+        words += 1;
+        non_whitespace_chars += token.len;
+    }
+
+    return WordCount{
+        .lines                = lines,
+        .words                = words,
+        .total_chars          = contents.len,
+        .non_whitespace_chars = non_whitespace_chars,
+    };
+}
+
+// ─────────────────────────────────────────────
+//  Output
+// ─────────────────────────────────────────────
+
+/// Prints the word count results in a formatted table.
+/// Separating output from logic makes it easy to change
+/// formatting without touching the counting code.
+fn printResults(
+    stdout: anytype,
+    filename: []const u8,
+    wc: WordCount,
+) !void {
+    try stdout.print("\nResults for: {s}\n", .{filename});
+    try stdout.print("\n  -- Standard --\n", .{});
+    try stdout.print("  Lines:                 {d}\n", .{wc.lines});
+    try stdout.print("  Words:                 {d}\n", .{wc.words});
+    try stdout.print("  Total characters:      {d}\n", .{wc.total_chars});
+    try stdout.print("\n  -- ML Friendly --\n", .{});
+    try stdout.print("  Tokens:                {d}\n", .{wc.words});
+    try stdout.print("  Non-whitespace chars:  {d}\n", .{wc.non_whitespace_chars});
+    try stdout.flush();
+}
+
+// ─────────────────────────────────────────────
+//  Entry point
+// ─────────────────────────────────────────────
+
+/// main() is purely an orchestrator:
+///   1. parse arguments
+///   2. open file
+///   3. read file
+///   4. count contents
+///   5. print results
 pub fn main() !void {
-    // Set up buffered stdout for writing output.
-    // Zig 0.15 requires an explicit buffer rather than writing directly.
     var buffer: [4096]u8 = undefined;
     var stdout_impl = std.fs.File.stdout().writer(&buffer);
     const stdout = &stdout_impl.interface;
 
-    // std.process.args() returns an iterator over command line arguments.
-    // The first argument is always the program name itself, so we skip it.
     var args = std.process.args();
-    _ = args.next(); // discard program name
+    _ = args.next();
 
-    // args.next() returns an optional (?[]const u8).
-    // If no filename was provided, the orelse block runs and we exit early.
     const filename = args.next() orelse {
         try stdout.print("Usage: wc <filename>\n", .{});
         try stdout.flush();
         return;
     };
 
-    // Open the file relative to the current working directory.
-    // catch handles any error (file not found, no permission, etc.)
     const file = std.fs.cwd().openFile(filename, .{}) catch |err| {
-        try stdout.print("Error opening file '{s}': {}\n", .{ filename, err });
+        try stdout.print("Error opening '{s}': {s}\n", .{ filename, fileErrorMessage(err) });
         try stdout.flush();
         return;
     };
-    // defer guarantees file.close() runs when main() exits no matter what.
     defer file.close();
 
-    // Read the entire file into a stack allocated buffer (1MB max).
-    // contents is a slice pointing to just the valid portion of read_buffer.
     var read_buffer: [1024 * 1024]u8 = undefined;
     const bytes_read = try file.readAll(&read_buffer);
     const contents = read_buffer[0..bytes_read];
 
-    // --- Standard counts ---
-
-    // Count lines with a simple pass looking for newline characters.
-    var lines: usize = 0;
-    for (contents) |c| {
-        if (c == '\n') lines += 1;
-    }
-
-    // Total bytes in file including all whitespace.
-    const total_chars: usize = contents.len;
-
-    // --- Token based counts (ML friendly) ---
-
-    // tokenizeAny splits on any of the given delimiter characters.
-    // Each token is a slice of the original contents (no allocation needed).
-    // Whitespace characters (space, newline, tab) are the delimiters.
-    var tokenizer = std.mem.tokenizeAny(u8, contents, " \n\t");
-
-    var token_count: usize = 0;
-    var non_whitespace_chars: usize = 0;
-
-    while (tokenizer.next()) |token| {
-        token_count += 1;                  // each token is one word
-        non_whitespace_chars += token.len; // sum character lengths
-    }
-
-    // --- Output ---
-    try stdout.print("\nResults for: {s}\n", .{filename});
-    try stdout.print("\n  -- Standard --\n", .{});
-    try stdout.print("  Lines:                 {d}\n", .{lines});
-    try stdout.print("  Words:                 {d}\n", .{token_count});
-    try stdout.print("  Total characters:      {d}\n", .{total_chars});
-    try stdout.print("\n  -- ML Friendly --\n", .{});
-    try stdout.print("  Tokens:                {d}\n", .{token_count});
-    try stdout.print("  Non-whitespace chars:  {d}\n", .{non_whitespace_chars});
-    try stdout.flush();
+    const wc = countContents(contents);
+    try printResults(stdout, filename, wc);
 }
