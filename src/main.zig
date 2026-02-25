@@ -38,7 +38,7 @@ fn countContents(contents: []const u8) WordCount {
     }
 
     // count tokens and non-whitespace characters
-    var tokenizer = std.mem.tokenizeAny(u8, contents, " \n\t");
+    var tokenizer = std.mem.tokenizeAny(u8, contents, " \n\t\r");
     var words: usize = 0;
     var non_whitespace_chars: usize = 0;
     while (tokenizer.next()) |token| {
@@ -143,4 +143,12 @@ test "whitespace only" {
     try std.testing.expectEqual(@as(usize, 0), result.words);
     try std.testing.expectEqual(@as(usize, 5), result.total_chars);
     try std.testing.expectEqual(@as(usize, 0), result.non_whitespace_chars);
+}
+
+test "windows line ending" {
+    const result = countContents("hello\r\nworld\r\n");
+    try std.testing.expectEqual(@as(usize, 2), result.lines);
+    try std.testing.expectEqual(@as(usize, 2), result.words);
+    try std.testing.expectEqual(@as(usize, 14), result.total_chars);
+    try std.testing.expectEqual(@as(usize, 10), result.non_whitespace_chars);
 }
