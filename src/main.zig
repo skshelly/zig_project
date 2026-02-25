@@ -14,7 +14,6 @@ pub fn main() !void {
         return;
     };
 
-    // open the file
     const file = std.fs.cwd().openFile(filename, .{}) catch |err| {
         try stdout.print("Error opening file '{s}': {}\n", .{ filename, err });
         try stdout.flush();
@@ -22,13 +21,29 @@ pub fn main() !void {
     };
     defer file.close();
 
-    // read the entire file into a buffer
-    var read_buffer: [1024 * 1024]u8 = undefined; // 1MB buffer
+    var read_buffer: [1024 * 1024]u8 = undefined;
     const bytes_read = try file.readAll(&read_buffer);
     const contents = read_buffer[0..bytes_read];
 
-    try stdout.print("File: {s}\n", .{filename});
-    try stdout.print("Bytes read: {d}\n", .{bytes_read});
-    try stdout.print("Contents preview: {s}\n", .{contents[0..@min(50, bytes_read)]});
+    // count lines, words, characters
+    var lines: usize = 0;
+    var words: usize = 0;
+    const chars: usize = contents.len;
+    var in_word = false;
+
+    for (contents) |c| {
+        if (c == '\n') lines += 1;
+        if (c == ' ' or c == '\n' or c == '\t') {
+            in_word = false;
+        } else if (!in_word) {
+            in_word = true;
+            words += 1;
+        }
+    }
+
+    try stdout.print("\nResults for: {s}\n", .{filename});
+    try stdout.print("  Lines:      {d}\n", .{lines});
+    try stdout.print("  Words:      {d}\n", .{words});
+    try stdout.print("  Characters: {d}\n", .{chars});
     try stdout.flush();
 }
