@@ -115,3 +115,32 @@ pub fn main() !void {
     const wc = countContents(contents);
     try printResults(stdout, filename, wc);
 }
+
+
+// ─────────────────────────────────────────────
+//  Tests
+// ─────────────────────────────────────────────
+
+test "empty file returns all zeros" {
+    const result = countContents("");
+    try std.testing.expectEqual(@as(usize, 0), result.lines);
+    try std.testing.expectEqual(@as(usize, 0), result.words);
+    try std.testing.expectEqual(@as(usize, 0), result.total_chars);
+    try std.testing.expectEqual(@as(usize, 0), result.non_whitespace_chars);
+}
+
+test "single line single word" {
+    const result = countContents("hello");
+    try std.testing.expectEqual(@as(usize, 0), result.lines);
+    try std.testing.expectEqual(@as(usize, 1), result.words);
+    try std.testing.expectEqual(@as(usize, 5), result.total_chars);
+    try std.testing.expectEqual(@as(usize, 5), result.non_whitespace_chars);
+}
+
+test "whitespace only" {
+    const result = countContents("\n \n \n");
+    try std.testing.expectEqual(@as(usize, 3), result.lines);
+    try std.testing.expectEqual(@as(usize, 0), result.words);
+    try std.testing.expectEqual(@as(usize, 5), result.total_chars);
+    try std.testing.expectEqual(@as(usize, 0), result.non_whitespace_chars);
+}
