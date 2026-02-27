@@ -10,9 +10,9 @@ fn fileErrorMessage(err: anyerror) []const u8 {
     return switch (err) {
         error.FileNotFound => "file does not exist",
         error.AccessDenied => "permission denied",
-        error.IsDir        => "path is a directory not a file",
-        error.FileBusy     => "file is currently locked",
-        else               => "unexpected error",
+        error.IsDir => "path is a directory not a file",
+        error.FileBusy => "file is currently locked",
+        else => "unexpected error",
     };
 }
 
@@ -22,9 +22,9 @@ fn fileErrorMessage(err: anyerror) []const u8 {
 
 /// Holds the results of analysing a file.
 const WordCount = struct {
-    lines:               usize,
-    words:               usize,
-    total_chars:         usize,
+    lines: usize,
+    words: usize,
+    total_chars: usize,
     non_whitespace_chars: usize,
 };
 
@@ -47,9 +47,9 @@ fn countContents(contents: []const u8) WordCount {
     }
 
     return WordCount{
-        .lines                = lines,
-        .words                = words,
-        .total_chars          = contents.len,
+        .lines = lines,
+        .words = words,
+        .total_chars = contents.len,
         .non_whitespace_chars = non_whitespace_chars,
     };
 }
@@ -116,7 +116,6 @@ pub fn main() !void {
     try printResults(stdout, filename, wc);
 }
 
-
 // ─────────────────────────────────────────────
 //  Tests
 // ─────────────────────────────────────────────
@@ -152,3 +151,21 @@ test "windows line ending" {
     try std.testing.expectEqual(@as(usize, 14), result.total_chars);
     try std.testing.expectEqual(@as(usize, 10), result.non_whitespace_chars);
 }
+
+test "non english characters" {
+    const result = countContents("नमस्ते");
+    try std.testing.expectEqual(@as(usize, 0), result.lines);
+    try std.testing.expectEqual(@as(usize, 1), result.words);
+    try std.testing.expectEqual(@as(usize, 18), result.total_chars);
+    try std.testing.expectEqual(@as(usize, 18), result.non_whitespace_chars);
+}
+
+//test "info" {
+//    const result = countContents("नमस्ते");
+//    std.debug.print("lines={d} words={d} total={d} non_ws={d}\n", .{
+//        result.lines,
+//        result.words, 
+//        result.total_chars,
+//        result.non_whitespace_chars,
+//    });
+//}
