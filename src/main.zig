@@ -28,6 +28,26 @@ const WordCount = struct {
     non_whitespace_chars: usize,
 };
 
+// ─────────────────────────────────────────────
+//  File reading
+// ─────────────────────────────────────────────
+
+/// Reads entire file contents into a dynamically allocated buffer.
+/// Caller is responsible for freeing the returned slice.
+fn readFile(allocator: std.mem.Allocator, file: std.fs.File) ![]u8 {
+    // get file size so we know how much to allocate
+    const file_size = (try file.stat()).size;
+    
+    // allocate exactly the right amount of memory
+    const buffer = try allocator.alloc(u8, file_size);
+    
+    // read the file into our buffer
+    _ = try file.readAll(buffer);
+    
+    return buffer;
+}
+
+
 /// Analyses the contents of a file and returns a WordCount.
 /// Separating counting logic from I/O makes this easy to test.
 fn countContents(contents: []const u8) WordCount {
@@ -108,9 +128,15 @@ pub fn main() !void {
     };
     defer file.close();
 
-    var read_buffer: [1024 * 1024]u8 = undefined;
-    const bytes_read = try file.readAll(&read_buffer);
-    const contents = read_buffer[0..bytes_read];
+    //var read_buffer: [1024 * 1024]u8 = undefined;
+    //const bytes_read = try file.readAll(&read_buffer);
+    //const contents = read_buffer[0..bytes_read];
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+
+    const allocator = arena.allocator();
+
+    const contents = try readFile(allocator, file);
 
     const wc = countContents(contents);
     try printResults(stdout, filename, wc);
@@ -158,6 +184,17 @@ test "non english characters" {
     try std.testing.expectEqual(@as(usize, 1), result.words);
     try std.testing.expectEqual(@as(usize, 18), result.total_chars);
     try std.testing.expectEqual(@as(usize, 18), result.non_whitespace_chars);
+}
+
+test "buffer overflow handled gracefully" {
+    // create a tiny fixed buffer - only 10 bytes
+    var fixed_buffer: [10]u8 = undefined;
+    var fba = std.heap.FixedBufferAllocator.init(&fixed_buffer);
+    const allocator = fba.allocator();
+
+    // try to allocate more than 10 bytes - should fail
+    const result = allocator.alloc(u8, 100);
+    try std.testing.expectError(error.OutOfMemory, result);
 }
 
 //test "info" {
