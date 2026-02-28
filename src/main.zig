@@ -146,6 +146,7 @@ pub fn main() !void {
 //  Tests
 // ─────────────────────────────────────────────
 
+//
 test "empty file returns all zeros" {
     const result = countContents("");
     try std.testing.expectEqual(@as(usize, 0), result.lines);
@@ -154,6 +155,7 @@ test "empty file returns all zeros" {
     try std.testing.expectEqual(@as(usize, 0), result.non_whitespace_chars);
 }
 
+//
 test "single line single word" {
     const result = countContents("hello");
     try std.testing.expectEqual(@as(usize, 0), result.lines);
@@ -162,6 +164,7 @@ test "single line single word" {
     try std.testing.expectEqual(@as(usize, 5), result.non_whitespace_chars);
 }
 
+//
 test "whitespace only" {
     const result = countContents("\n \n \n");
     try std.testing.expectEqual(@as(usize, 3), result.lines);
@@ -170,6 +173,7 @@ test "whitespace only" {
     try std.testing.expectEqual(@as(usize, 0), result.non_whitespace_chars);
 }
 
+//
 test "windows line ending" {
     const result = countContents("hello\r\nworld\r\n");
     try std.testing.expectEqual(@as(usize, 2), result.lines);
@@ -178,6 +182,7 @@ test "windows line ending" {
     try std.testing.expectEqual(@as(usize, 10), result.non_whitespace_chars);
 }
 
+//
 test "non english characters" {
     const result = countContents("नमस्ते");
     try std.testing.expectEqual(@as(usize, 0), result.lines);
@@ -186,6 +191,7 @@ test "non english characters" {
     try std.testing.expectEqual(@as(usize, 18), result.non_whitespace_chars);
 }
 
+//
 test "buffer overflow handled gracefully" {
     // create a tiny fixed buffer - only 10 bytes
     var fixed_buffer: [10]u8 = undefined;
@@ -195,6 +201,30 @@ test "buffer overflow handled gracefully" {
     // try to allocate more than 10 bytes - should fail
     const result = allocator.alloc(u8, 100);
     try std.testing.expectError(error.OutOfMemory, result);
+}
+
+//
+test "fileErrorMessage returns correct messages" {
+    try std.testing.expectEqualStrings(
+        "file does not exist",
+        fileErrorMessage(error.FileNotFound)
+    );
+    try std.testing.expectEqualStrings(
+        "permission denied",
+        fileErrorMessage(error.AccessDenied)
+    );
+    try std.testing.expectEqualStrings(
+        "path is a directory not a file",
+        fileErrorMessage(error.IsDir)
+    );
+    try std.testing.expectEqualStrings(
+        "file is currently locked",
+        fileErrorMessage(error.FileBusy)
+    );
+    try std.testing.expectEqualStrings(
+        "unexpected error",
+        fileErrorMessage(error.OutOfMemory)
+    );
 }
 
 //test "info" {
