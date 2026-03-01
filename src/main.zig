@@ -37,16 +37,15 @@ const WordCount = struct {
 fn readFile(allocator: std.mem.Allocator, file: std.fs.File) ![]u8 {
     // get file size so we know how much to allocate
     const file_size = (try file.stat()).size;
-    
+
     // allocate exactly the right amount of memory
     const buffer = try allocator.alloc(u8, file_size);
-    
+
     // read the file into our buffer
     _ = try file.readAll(buffer);
-    
+
     return buffer;
 }
-
 
 /// Analyses the contents of a file and returns a WordCount.
 /// Separating counting logic from I/O makes this easy to test.
@@ -205,34 +204,32 @@ test "buffer overflow handled gracefully" {
 
 //
 test "fileErrorMessage returns correct messages" {
-    try std.testing.expectEqualStrings(
-        "file does not exist",
-        fileErrorMessage(error.FileNotFound)
-    );
-    try std.testing.expectEqualStrings(
-        "permission denied",
-        fileErrorMessage(error.AccessDenied)
-    );
-    try std.testing.expectEqualStrings(
-        "path is a directory not a file",
-        fileErrorMessage(error.IsDir)
-    );
-    try std.testing.expectEqualStrings(
-        "file is currently locked",
-        fileErrorMessage(error.FileBusy)
-    );
-    try std.testing.expectEqualStrings(
-        "unexpected error",
-        fileErrorMessage(error.OutOfMemory)
-    );
+    try std.testing.expectEqualStrings("file does not exist", fileErrorMessage(error.FileNotFound));
+    try std.testing.expectEqualStrings("permission denied", fileErrorMessage(error.AccessDenied));
+    try std.testing.expectEqualStrings("path is a directory not a file", fileErrorMessage(error.IsDir));
+    try std.testing.expectEqualStrings("file is currently locked", fileErrorMessage(error.FileBusy));
+    try std.testing.expectEqualStrings("unexpected error", fileErrorMessage(error.OutOfMemory));
 }
 
 //test "info" {
 //    const result = countContents("नमस्ते");
 //    std.debug.print("lines={d} words={d} total={d} non_ws={d}\n", .{
 //        result.lines,
-//        result.words, 
+//        result.words,
 //        result.total_chars,
 //        result.non_whitespace_chars,
 //    });
 //}
+test "fuzz countContents" {
+    const Context = struct {
+        fn testOne(context: @This(), input: []const u8) anyerror!void {
+            _ = context;
+            // feed random input to countContents and make sure it never crashes
+            const result = countContents(input);
+            // basic sanity checks that should always hold true
+            try std.testing.expect(result.non_whitespace_chars <= result.total_chars);
+            try std.testing.expect(result.words <= result.total_chars);
+        }
+    };
+    try std.testing.fuzz(Context{}, Context.testOne, .{});
+}
